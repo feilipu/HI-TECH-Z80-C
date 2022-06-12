@@ -9,7 +9,7 @@
  *  processor is prohibited.
  */
 
-#define	VERSION	"V3.09-13"
+#define	VERSION	"V3.09-15"
 
 /*----------------------------------------------------------------------*\
  | Note by Jon Saxton, 3 May 2014.					|
@@ -108,7 +108,11 @@ static char *paths[] =
     "CGEN",
     "OPTIM",
     "CPP",
+#ifdef USE_Z80AS
+    "Z80AS",
+#else
     "ZAS",
+#endif
 #ifdef Z280
     "LIB280",
 #else

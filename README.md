@@ -9,7 +9,7 @@ emulation using RunZ80, SIMH or ZXCC.
 Each release is a consolidated milestone with various updates and
 patches applied.
 
-The latest release is V3.09-12 (see Modification History below).
+The latest release is V3.09-15 (see Modification History below).
 
 If you only wish to download the latest binary distribution, download
 it from
@@ -248,8 +248,8 @@ Exact file sizes (CP/M 3 and DOS+ v2.5)
     b.  LSBC contains the number of USED bytes but 0 means 128.
 
     Both usages have appeared in the small number of CP/M 3 utilities which
-    support exact file lengths.  My own tools use the first interpretation;
-    John Elliott's utilities use the second.
+    support exact file lengths.  Jon Saxton's tools use the first
+    interpretation; John Elliott's utilities use the second.
 
     The first interpretation is slightly simpler to implement because it
     avoids any special-case handling.  It is also historically correct.
@@ -264,6 +264,9 @@ Exact file sizes (CP/M 3 and DOS+ v2.5)
     in a file is always (sectors * 128) - lsbc.
 
     (When running on CP/M 2 lsbc is always zero.)
+
+NB: This change is now detected automatically for releases v3.09-14 (and
+    later) by the start-up module (CRTCPM.OBJ) - see below.
 
 strcasecmp()
 
@@ -1406,11 +1409,9 @@ ERA M:$$EXEC.$$$
 ```
 
 There's newly optimised Z280 object libraries (LIB280C.LIB and LIB280F.LIB)
-and execuatables in the *z280dist* folder, along with the new V3.09-13
+and CP/M COM  files in the *z280dist* folder, including the new V3.09-13
 compiler front-end as ```C280-13.COM``` (which you should copy and rename to
 ```C280.COM``` on the drive where you install the rest of the compiler files).
-Also, I've temporarily put the source-code for the new C309-13.C in the
-*z280dist* folder.
 
 The Z280 binary distribution library has been updated too. Get it from
 
@@ -1420,5 +1421,93 @@ https://raw.githubusercontent.com/agn453/HI-TECH-Z80-C/master/z280bin.lbr
 Z80 release files).
 
 
+## Interpretation of exact file sizes reverted
+
+Following on from Mark Ogden's consultations with John Elliott (the author
+of the ZXCC emulator and PIPEMGR),  I have accepted a proposal from Mark
+Ogden to revert the interpretation of exact file sizes back to John
+Elliot's original DOS Plus interpretation.
+
+As mentioned in the release v3.09-3 notes (above), there are two common
+conventions that can be used to record exact file sizes in CP/M 3 and
+DOS Plus.
+
+* Record the number of bytes USED in the last sector (as used by DOS Plus)
+
+or
+
+* Record the number of UNUSED bytes in the last sector (used by ISX for
+ISIS emulation)
+
+NB: The compiler release V3.09-13 was set to select this via
+an ```EXACT``` environment variable (defined in the 0:A:ENVIRON file).
+This feature has been removed from the current release V3.09-14 (and
+subsequent versions) and replaced with the following.
+
+The start-up module (CRTCPM.OBJ) detects whether you are running the
+compiler under CP/M 2 or CP/M 3 (or DOS Plus) and defaults a global
+variable ```_exact``` to enable DOS Plus interpretation of exact file
+size.
+
+To allow you to continue with the alternative ISX/ISIS interpretation,
+you can override the value of the global variable as follows -
+
+```
+#include <stdio.h>
+extern char _exact;
+..
+int main(int argc, char ** argv)
+{
+    _exact = 'I';  /* Enable ISIS exact file size */
+..
+}
+```
+
+The values of ```_exact``` can also be only one of the following -
+
+```
+    _exact = 'C';  /* No exact file size - like CP/M 2.2 uses */
+or
+    _exact = 'D';  /* DOS Plus convention for exact file size */
+```
+
+The C library close() routine uses the selected exact file size mode
+to write the last record USED (DOS Plus) or UNUSED (ISIS) byte value
+to the directory entry.
+
+Note: You need to take extra care if you're using an emulator like ZXCC
+which has been updated to only support the DOS Plus
+convention or the CP/M 2.2 interpretation (as per the original version
+by John Elliott).  Using the wrong mode will cause the file will be
+extended or truncated in the last sector.  The CP/M 2.2 mode causes
+```Ctrl-Z``` to be written at the end of text files (as per the CP/M
+convention).
+
+The PIPEMGR source code has also been reverted to support only the
+DOS plus and CP/M 2.2 file size convention.  Piping a text concatenation
+(using the ```>>``` operator) will now write the extra text to the end
+of the file (and before the ```Ctrl-Z``` marker if the file has this in
+the last sector).  Files written to by PIPEMGR will use the DOS Plus
+exact file size convention.
+
+
+## Fixes to longjmp() and detect underflow in floating point division
+
+Mark Ogden has supplied a couple of fixes.
+
+The first was a result of an incorrect assumption about a compiler
+optimisation from later versions of the HI-TECH Z80 cross-compiler.
+V3.09-x does not pass an initial function argument in the DE register.
+Only the longjmp() routine (in gen/LONGJMP.AS) is affected.
+
+The second concerns a floating point division not detecting an underflow
+condition.  The fldiv() routine (in float/FLOAT.AS) now detects this
+and returns a zero result.
+
+Updated LIBC.LIB and LIBF.LIB contain the fixes (as well as the Z280
+versions LIB280C.LIB and LIB280F.LIB), and I've bumped the release
+to V3.09-15.
+
+
 --
-Tony Nicholson, Monday 07-Feb-2022
+Tony Nicholson, Tuesday 24-May-2022
